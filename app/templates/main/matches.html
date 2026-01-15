@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}My Matches - TechBuddy{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-slate-900">My Matches</h1>
+        <p class="text-slate-600 mt-1">{{ matches|length }} tech buddies waiting to connect</p>
+    </div>
+    
+    {% if matches %}
+    <div class="grid md:grid-cols-2 gap-4">
+        {% for match_data in matches %}
+        {% set other_user = match_data.user %}
+        <a href="{{ url_for('main.messages', user_id=other_user.id) }}" 
+           class="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-lg transition">
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    {% if other_user.profile.profile_photo %}
+                    <img src="{{ url_for('static', filename='uploads/' + other_user.profile.profile_photo) }}" 
+                         class="w-16 h-16 rounded-full object-cover border-2 border-blue-500" alt="{{ other_user.username }}">
+                    {% else %}
+                    <div class="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center">
+                        <span class="text-white text-xl font-semibold">{{ other_user.username[0].upper() }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if match_data.unread_count > 0 %}
+                    <div class="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                        <span class="text-white text-xs font-bold">{{ match_data.unread_count }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-semibold text-slate-900 truncate">{{ other_user.username }}</h3>
+                    
+                    {% if match_data.last_message %}
+                    <p class="text-sm text-slate-600 truncate">
+                        {% if match_data.last_message.sender_id == current_user.id %}
+                        <span class="text-slate-500">You:</span>
+                        {% endif %}
+                        {{ match_data.last_message.content }}
+                    </p>
+                    <p class="text-xs text-slate-400 mt-1">
+                        {{ match_data.last_message.sent_at.strftime('%b %d, %I:%M %p') }}
+                    </p>
+                    {% else %}
+                    <p class="text-sm text-slate-500">Start a conversation!</p>
+                    {% endif %}
+                </div>
+                
+                <i class="fas fa-chevron-right text-slate-400"></i>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-20">
+        <div class="w-20 h-20 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-heart text-slate-400 text-3xl"></i>
+        </div>
+        <h3 class="text-xl font-semibold text-slate-900 mb-2">No Matches Yet</h3>
+        <p class="text-slate-600 mb-6">Start liking profiles to get matches!</p>
+        <a href="{{ url_for('main.discover') }}" 
+           class="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+            Discover Tech Buddies
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

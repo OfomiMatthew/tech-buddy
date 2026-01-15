@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Discover - TechBuddy{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900">Discover Tech Buddies</h1>
+            <p class="text-slate-600 mt-1">Find your perfect learning partner</p>
+        </div>
+        <div class="text-sm text-slate-600">
+            <i class="fas fa-heart text-red-500 mr-1"></i>
+            <span class="font-semibold">{{ matches_count }}</span> matches
+        </div>
+    </div>
+    
+    {% if users %}
+    <div class="grid lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        {% for user in users %}
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition" id="user-{{ user.id }}">
+            <div class="relative h-64 bg-slate-200">
+                {% if user.profile.profile_photo %}
+                <img src="{{ url_for('static', filename='uploads/' + user.profile.profile_photo) }}" 
+                     class="w-full h-full object-cover" alt="{{ user.username }}">
+                {% else %}
+                <div class="w-full h-full flex items-center justify-center bg-blue-100">
+                    <i class="fas fa-user text-blue-600 text-6xl"></i>
+                </div>
+                {% endif %}
+                
+                <div class="absolute top-4 right-4">
+                    <span class="px-3 py-1 bg-white/90 backdrop-blur rounded-full text-sm font-semibold text-slate-700">
+                        {{ user.age }} years
+                    </span>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900">{{ user.username }}</h3>
+                        <p class="text-sm text-slate-600">
+                            <i class="fas fa-map-marker-alt mr-1"></i>
+                            {{ user.city }}, {{ user.state }}
+                        </p>
+                    </div>
+                </div>
+                
+                {% if user.profile.current_role %}
+                <div class="mb-3">
+                    <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium">
+                        <i class="fas fa-briefcase mr-1"></i>
+                        {{ user.profile.current_role }}
+                    </span>
+                </div>
+                {% endif %}
+                
+                {% if user.profile.experience_level %}
+                <div class="mb-3">
+                    <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
+                        {{ user.profile.experience_level }}
+                    </span>
+                </div>
+                {% endif %}
+                
+                {% if user.profile.bio %}
+                <p class="text-slate-600 text-sm mb-4 line-clamp-3">{{ user.profile.bio }}</p>
+                {% endif %}
+                
+                {% if user.profile.learning_goals %}
+                <div class="mb-3">
+                    <p class="text-xs font-semibold text-slate-500 uppercase mb-1">Wants to Learn</p>
+                    <p class="text-sm text-slate-700 line-clamp-2">{{ user.profile.learning_goals }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="flex space-x-2 mt-4">
+                    <button onclick="passUser({{ user.id }})" 
+                            class="flex-1 py-3 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200 transition">
+                        <i class="fas fa-times mr-2"></i>Pass
+                    </button>
+                    <button onclick="likeUser({{ user.id }})" 
+                            class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+                        <i class="fas fa-heart mr-2"></i>Like
+                    </button>
+                    <a href="{{ url_for('main.view_profile', user_id=user.id) }}" 
+                       class="px-4 py-3 border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-20">
+        <div class="w-20 h-20 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-users text-slate-400 text-3xl"></i>
+        </div>
+        <h3 class="text-xl font-semibold text-slate-900 mb-2">No More Users</h3>
+        <p class="text-slate-600">Check back later for more tech buddies!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Match Modal -->
+<div id="matchModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+    <div class="bg-white rounded-2xl p-8 max-w-md w-full text-center">
+        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-heart text-green-600 text-3xl"></i>
+        </div>
+        <h3 class="text-2xl font-bold text-slate-900 mb-2">It's a Match! 🎉</h3>
+        <p class="text-slate-600 mb-6">You can now start messaging each other</p>
+        <div class="flex space-x-3">
+            <button onclick="closeMatchModal()" class="flex-1 py-3 border border-slate-300 rounded-lg font-semibold hover:bg-slate-50 transition">
+                Keep Browsing
+            </button>
+            <a href="{{ url_for('main.matches') }}" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+                View Matches
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function likeUser(userId) {
+    fetch(`/like/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`user-${userId}`).remove();
+            
+            if (data.is_match) {
+                document.getElementById('matchModal').classList.remove('hidden');
+            }
+        }
+    });
+}
+
+function passUser(userId) {
+    fetch(`/pass/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`user-${userId}`).remove();
+        }
+    });
+}
+
+function closeMatchModal() {
+    document.getElementById('matchModal').classList.add('hidden');
+}
+</script>
+{% endblock %}

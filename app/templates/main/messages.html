@@ -1,0 +1,1681 @@
+{% extends "base.html" %} {% block title %}Chat with {{ other_user.username }} -
+TechBuddy{% endblock %} {% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+  <div
+    class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+  >
+    <!-- Chat Header -->
+    <div class="border-b border-slate-200 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <a
+            href="{{ url_for('main.matches') }}"
+            class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 transition"
+          >
+            <i class="fas fa-arrow-left text-slate-600"></i>
+          </a>
+
+          {% if other_user.profile.profile_photo %}
+          <img
+            src="{{ url_for('static', filename='uploads/' + other_user.profile.profile_photo) }}"
+            class="w-12 h-12 rounded-full object-cover border-2 border-blue-500"
+            alt="{{ other_user.username }}"
+          />
+          {% else %}
+          <div
+            class="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center"
+          >
+            <span class="text-white font-semibold"
+              >{{ other_user.username[0].upper() }}</span
+            >
+          </div>
+          {% endif %}
+
+          <div>
+            <h2 class="font-semibold text-slate-900">
+              {{ other_user.username }}
+            </h2>
+            {% if other_user.profile.current_role %}
+            <p class="text-sm text-slate-600">
+              {{ other_user.profile.current_role }}
+            </p>
+            {% endif %}
+            <p id="typingIndicator" class="text-xs text-blue-600 hidden">
+              <i class="fas fa-circle-notch fa-spin mr-1"></i>typing...
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- AI Features Button -->
+          <button
+            onclick="toggleAIMenu()"
+            class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-purple-50 text-purple-600 transition relative"
+            title="AI Features"
+            id="aiMenuButton"
+          >
+            <i class="fas fa-sparkles"></i>
+          </button>
+
+          <!-- Voice Call Button -->
+          <button
+            onclick="startVoiceCall()"
+            class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-green-50 text-green-600 transition"
+            title="Voice Call"
+          >
+            <i class="fas fa-phone"></i>
+          </button>
+
+          <!-- Video Call Button -->
+          <button
+            onclick="startVideoCall()"
+            class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-blue-50 text-blue-600 transition"
+            title="Video Call"
+          >
+            <i class="fas fa-video"></i>
+          </button>
+
+          <a
+            href="{{ url_for('main.view_profile', user_id=other_user.id) }}"
+            class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 transition"
+          >
+            View Profile
+          </a>
+        </div>
+      </div>
+
+      <!-- AI Features Dropdown Menu -->
+      <div
+        id="aiMenu"
+        class="hidden absolute right-4 top-20 bg-white rounded-lg shadow-xl border border-slate-200 w-80 z-50"
+      >
+        <div class="p-4 border-b border-slate-200">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-slate-900 flex items-center">
+              <i class="fas fa-sparkles text-purple-600 mr-2"></i>
+              AI Assistant
+            </h3>
+            <button
+              onclick="toggleAIMenu()"
+              class="text-slate-400 hover:text-slate-600"
+            >
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="p-2">
+          <button
+            onclick="getConversationStarters()"
+            class="w-full text-left px-4 py-3 hover:bg-purple-50 rounded-lg transition flex items-center"
+          >
+            <i class="fas fa-comment-dots text-purple-600 w-8"></i>
+            <div class="flex-1">
+              <div class="font-medium text-sm">Conversation Starters</div>
+              <div class="text-xs text-slate-500">
+                Get AI-generated icebreakers
+              </div>
+            </div>
+          </button>
+
+          <button
+            onclick="getCompatibilityAnalysis()"
+            class="w-full text-left px-4 py-3 hover:bg-blue-50 rounded-lg transition flex items-center"
+          >
+            <i class="fas fa-heart text-blue-600 w-8"></i>
+            <div class="flex-1">
+              <div class="font-medium text-sm">Compatibility Analysis</div>
+              <div class="text-xs text-slate-500">
+                See your match score & insights
+              </div>
+            </div>
+          </button>
+
+          <button
+            onclick="getDateIdeas()"
+            class="w-full text-left px-4 py-3 hover:bg-green-50 rounded-lg transition flex items-center"
+          >
+            <i class="fas fa-calendar-heart text-green-600 w-8"></i>
+            <div class="flex-1">
+              <div class="font-medium text-sm">Date Ideas</div>
+              <div class="text-xs text-slate-500">
+                Get personalized date suggestions
+              </div>
+            </div>
+          </button>
+
+          <button
+            onclick="toggleMessageCoach()"
+            class="w-full text-left px-4 py-3 hover:bg-amber-50 rounded-lg transition flex items-center"
+          >
+            <i class="fas fa-user-tie text-amber-600 w-8"></i>
+            <div class="flex-1">
+              <div class="font-medium text-sm">Message Coach</div>
+              <div class="text-xs text-slate-500">
+                Get feedback on your messages
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Messages Container -->
+    <div
+      id="messagesContainer"
+      class="h-[500px] overflow-y-auto p-6 space-y-4 bg-slate-50"
+    >
+      {% if messages %} {% for message in messages %} {% if not
+      message.is_deleted %}
+      <div
+        class="flex {% if message.sender_id == current_user.id %}justify-end{% else %}justify-start{% endif %}"
+        data-message-id="{{ message.id }}"
+      >
+        <div class="max-w-[70%] group relative">
+          <!-- Message Content -->
+          <div
+            class="{% if message.sender_id == current_user.id %}bg-blue-600 text-white{% else %}bg-white text-slate-900 border border-slate-200{% endif %} rounded-2xl overflow-hidden"
+          >
+            {% if message.message_type == 'image' %}
+            <!-- Image Message -->
+            <div class="p-2">
+              <img
+                src="{{ url_for('static', filename='uploads/' + message.file_url) }}"
+                class="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition"
+                onclick="openImageModal(this.src)"
+                alt="Shared image"
+              />
+              {% if message.content %}
+              <p class="text-sm mt-2 px-2">{{ message.content }}</p>
+              {% endif %}
+            </div>
+
+            {% elif message.message_type == 'voice' %}
+            <!-- Voice Note -->
+            <div class="p-3">
+              <div class="flex items-center space-x-3">
+                <button
+                  onclick="playVoiceNote('{{ message.id }}')"
+                  class="w-10 h-10 rounded-full {% if message.sender_id == current_user.id %}bg-blue-500{% else %}bg-blue-600{% endif %} flex items-center justify-center hover:opacity-80 transition"
+                >
+                  <i
+                    class="fas fa-play text-white text-sm"
+                    id="play-icon-{{ message.id }}"
+                  ></i>
+                </button>
+                <audio
+                  id="audio-{{ message.id }}"
+                  src="{{ url_for('static', filename='uploads/' + message.file_url) }}"
+                  preload="metadata"
+                ></audio>
+                <div class="flex-1">
+                  <div class="h-8 flex items-center">
+                    <i class="fas fa-microphone mr-2"></i>
+                    <span class="text-sm">Voice Note</span>
+                  </div>
+                  <div
+                    class="text-xs opacity-75"
+                    id="duration-{{ message.id }}"
+                  >
+                    0:00
+                  </div>
+                </div>
+              </div>
+              {% if message.content %}
+              <p class="text-sm mt-2">{{ message.content }}</p>
+              {% endif %}
+            </div>
+
+            {% elif message.message_type == 'video' %}
+            <!-- Video Message -->
+            <div class="p-2">
+              <video controls class="max-w-full rounded-lg">
+                <source
+                  src="{{ url_for('static', filename='uploads/' + message.file_url) }}"
+                />
+                Your browser does not support the video tag.
+              </video>
+              {% if message.content %}
+              <p class="text-sm mt-2 px-2">{{ message.content }}</p>
+              {% endif %}
+            </div>
+
+            {% elif message.message_type == 'file' %}
+            <!-- File Attachment -->
+            <div class="p-3">
+              <a
+                href="{{ url_for('static', filename='uploads/' + message.file_url) }}"
+                download="{{ message.file_name }}"
+                class="flex items-center space-x-3 hover:opacity-80 transition"
+              >
+                <div
+                  class="w-10 h-10 rounded-lg {% if message.sender_id == current_user.id %}bg-blue-500{% else %}bg-blue-600{% endif %} flex items-center justify-center"
+                >
+                  <i class="fas fa-file text-white"></i>
+                </div>
+                <div class="flex-1">
+                  <p class="text-sm font-medium truncate">
+                    {{ message.file_name }}
+                  </p>
+                  <p class="text-xs opacity-75">
+                    {{ (message.file_size / 1024)|round(1) }} KB
+                  </p>
+                </div>
+                <i class="fas fa-download"></i>
+              </a>
+              {% if message.content %}
+              <p class="text-sm mt-2">{{ message.content }}</p>
+              {% endif %}
+            </div>
+
+            {% else %}
+            <!-- Text Message -->
+            <div class="px-4 py-3">
+              <p class="text-sm whitespace-pre-wrap">{{ message.content }}</p>
+            </div>
+            {% endif %} {% if message.reaction %}
+            <div
+              class="absolute -bottom-2 right-2 bg-white border border-slate-200 rounded-full px-2 py-1 text-xs shadow-sm"
+            >
+              {{ message.reaction }}
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Message Actions -->
+          <div
+            class="flex items-center mt-1 space-x-2 {% if message.sender_id == current_user.id %}justify-end{% endif %}"
+          >
+            <p class="text-xs text-slate-500">
+              {{ message.sent_at.strftime('%I:%M %p') }} {% if message.sender_id
+              == current_user.id and message.is_read %}
+              <i class="fas fa-check-double text-blue-500 ml-1"></i>
+              {% endif %}
+            </p>
+
+            <!-- Reaction Button -->
+            <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onclick="showReactionPicker({{ message.id }})"
+                class="text-slate-400 hover:text-slate-600 transition"
+              >
+                <i class="far fa-smile text-xs"></i>
+              </button>
+              {% if message.sender_id == current_user.id %}
+              <button
+                onclick="deleteMessage({{ message.id }})"
+                class="text-slate-400 hover:text-red-600 transition ml-1"
+              >
+                <i class="far fa-trash-alt text-xs"></i>
+              </button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %} {% endfor %} {% else %}
+      <div class="text-center py-12">
+        <div
+          class="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3"
+        >
+          <i class="fas fa-comment text-slate-400 text-2xl"></i>
+        </div>
+        <p class="text-slate-600">No messages yet. Start the conversation!</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Message Input -->
+    <div class="border-t border-slate-200 p-4 bg-white">
+      <form
+        method="POST"
+        action="{{ url_for('main.messages', user_id=other_user.id) }}"
+        enctype="multipart/form-data"
+        id="messageForm"
+        class="space-y-3"
+      >
+        {{ form.hidden_tag() }}
+
+        <!-- File Preview -->
+        <div id="filePreview" class="hidden">
+          <div
+            class="bg-slate-100 rounded-lg p-3 flex items-center justify-between"
+          >
+            <div class="flex items-center space-x-3">
+              <i class="fas fa-file text-blue-600"></i>
+              <span id="fileName" class="text-sm text-slate-700"></span>
+            </div>
+            <button
+              type="button"
+              onclick="clearFile()"
+              class="text-slate-400 hover:text-slate-600"
+            >
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex space-x-2">
+          <!-- Attachment Button -->
+          <label for="attachment" class="cursor-pointer">
+            <div
+              class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 transition text-slate-600"
+            >
+              <i class="fas fa-paperclip"></i>
+            </div>
+          </label>
+          {{ form.attachment(class="hidden", id="attachment",
+          onchange="handleFileSelect(this)") }}
+
+          <!-- Voice Note Button -->
+          <button
+            type="button"
+            id="voiceButton"
+            onclick="toggleRecording()"
+            class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-slate-100 transition text-slate-600"
+          >
+            <i class="fas fa-microphone"></i>
+          </button>
+
+          <!-- Message Input -->
+          <div class="flex-1">
+            {{ form.content(class="w-full px-4 py-3 border border-slate-300
+            rounded-lg focus:outline-none focus:border-blue-500 transition
+            resize-none", rows="1", placeholder="Type your message...",
+            onkeydown="handleTyping(event)", oninput="autoResize(this)") }}
+          </div>
+
+          {{ form.submit(class="px-6 py-3 bg-blue-600 text-white rounded-lg
+          font-semibold hover:bg-blue-700 transition cursor-pointer") }}
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Image Modal -->
+<div
+  id="imageModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+  onclick="closeImageModal()"
+>
+  <img
+    id="modalImage"
+    class="max-w-full max-h-full rounded-lg"
+    alt="Full size image"
+  />
+  <button
+    onclick="closeImageModal()"
+    class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300"
+  >
+    <i class="fas fa-times"></i>
+  </button>
+</div>
+
+<!-- Reaction Picker -->
+<div
+  id="reactionPicker"
+  class="hidden fixed bg-white border border-slate-200 rounded-lg shadow-lg p-3 z-50"
+>
+  <div class="flex space-x-2">
+    <button
+      onclick="addReaction('❤️')"
+      class="text-2xl hover:scale-125 transition"
+    >
+      ❤️
+    </button>
+    <button
+      onclick="addReaction('😊')"
+      class="text-2xl hover:scale-125 transition"
+    >
+      😊
+    </button>
+    <button
+      onclick="addReaction('😂')"
+      class="text-2xl hover:scale-125 transition"
+    >
+      😂
+    </button>
+    <button
+      onclick="addReaction('😮')"
+      class="text-2xl hover:scale-125 transition"
+    >
+      😮
+    </button>
+    <button
+      onclick="addReaction('👍')"
+      class="text-2xl hover:scale-125 transition"
+    >
+      👍
+    </button>
+    <button
+      onclick="addReaction('🔥')"
+      class="text-2xl hover:scale-125 transition"
+    >
+      🔥
+    </button>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  let mediaRecorder;
+  let audioChunks = [];
+  let currentMessageId = null;
+
+  // Auto-scroll to bottom on page load
+  document.addEventListener("DOMContentLoaded", function () {
+    const container = document.getElementById("messagesContainer");
+    container.scrollTop = container.scrollHeight;
+
+    // Load audio durations
+    document.querySelectorAll("audio").forEach((audio) => {
+      audio.addEventListener("loadedmetadata", function () {
+        const id = this.id.replace("audio-", "");
+        const minutes = Math.floor(this.duration / 60);
+        const seconds = Math.floor(this.duration % 60);
+        document.getElementById(
+          `duration-${id}`
+        ).textContent = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+      });
+    });
+  });
+
+  // Auto-resize textarea
+  function autoResize(textarea) {
+    textarea.style.height = "auto";
+    textarea.style.height = textarea.scrollHeight + "px";
+  }
+
+  // Typing indicator
+  let typingTimeout;
+  function handleTyping(event) {
+    clearTimeout(typingTimeout);
+
+    // Send typing indicator (in production, use WebSocket)
+    fetch(`/api/typing/{{ other_user.id }}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    typingTimeout = setTimeout(() => {
+      // Stop typing indicator
+    }, 1000);
+
+    // Submit on Enter (without Shift)
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      document.getElementById("messageForm").submit();
+    }
+  }
+
+  // File handling
+  function handleFileSelect(input) {
+    const file = input.files[0];
+    if (file) {
+      document.getElementById("filePreview").classList.remove("hidden");
+      document.getElementById("fileName").textContent = file.name;
+    }
+  }
+
+  function clearFile() {
+    document.getElementById("attachment").value = "";
+    document.getElementById("filePreview").classList.add("hidden");
+  }
+
+  // Voice recording
+  async function toggleRecording() {
+    const button = document.getElementById("voiceButton");
+
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+      button.innerHTML = '<i class="fas fa-microphone"></i>';
+      button.classList.remove("bg-red-500", "text-white");
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, {
+            type: "audio/ogg; codecs=opus",
+          });
+          const audioFile = new File([audioBlob], `voice_${Date.now()}.ogg`, {
+            type: "audio/ogg",
+          });
+
+          // Create a DataTransfer object to set the file
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(audioFile);
+          document.getElementById("attachment").files = dataTransfer.files;
+
+          handleFileSelect(document.getElementById("attachment"));
+
+          // Stop all audio tracks
+          stream.getTracks().forEach((track) => track.stop());
+        };
+
+        mediaRecorder.start();
+        button.innerHTML = '<i class="fas fa-stop"></i>';
+        button.classList.add("bg-red-500", "text-white");
+      } catch (error) {
+        console.error("Error accessing microphone:", error);
+        alert("Could not access microphone. Please check permissions.");
+      }
+    }
+  }
+
+  // Voice note playback
+  function playVoiceNote(messageId) {
+    const audio = document.getElementById(`audio-${messageId}`);
+    const icon = document.getElementById(`play-icon-${messageId}`);
+
+    if (audio.paused) {
+      // Pause all other audio
+      document.querySelectorAll("audio").forEach((a) => {
+        if (a !== audio) a.pause();
+      });
+      document.querySelectorAll('[id^="play-icon-"]').forEach((i) => {
+        i.className = "fas fa-play text-white text-sm";
+      });
+
+      audio.play();
+      icon.className = "fas fa-pause text-white text-sm";
+
+      audio.onended = () => {
+        icon.className = "fas fa-play text-white text-sm";
+      };
+    } else {
+      audio.pause();
+      audio.currentTime = 0;
+      icon.className = "fas fa-play text-white text-sm";
+    }
+  }
+
+  // Image modal
+  function openImageModal(src) {
+    document.getElementById("modalImage").src = src;
+    document.getElementById("imageModal").classList.remove("hidden");
+  }
+
+  function closeImageModal() {
+    document.getElementById("imageModal").classList.add("hidden");
+  }
+
+  // Reactions
+  function showReactionPicker(messageId) {
+    currentMessageId = messageId;
+    const picker = document.getElementById("reactionPicker");
+    const messageEl = document.querySelector(
+      `[data-message-id="${messageId}"]`
+    );
+    const rect = messageEl.getBoundingClientRect();
+
+    picker.style.left = `${rect.left}px`;
+    picker.style.top = `${rect.bottom + 5}px`;
+    picker.classList.remove("hidden");
+
+    // Close picker when clicking outside
+    setTimeout(() => {
+      document.addEventListener("click", closeReactionPicker);
+    }, 100);
+  }
+
+  function closeReactionPicker(event) {
+    const picker = document.getElementById("reactionPicker");
+    if (!picker.contains(event.target)) {
+      picker.classList.add("hidden");
+      document.removeEventListener("click", closeReactionPicker);
+    }
+  }
+
+  async function addReaction(emoji) {
+    if (!currentMessageId) return;
+
+    try {
+      const response = await fetch(`/api/message/${currentMessageId}/react`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reaction: emoji }),
+      });
+
+      if (response.ok) {
+        location.reload(); // Reload to show reaction
+      }
+    } catch (error) {
+      console.error("Error adding reaction:", error);
+    }
+
+    document.getElementById("reactionPicker").classList.add("hidden");
+  }
+
+  // Delete message
+  async function deleteMessage(messageId) {
+    if (!confirm("Delete this message?")) return;
+
+    try {
+      const response = await fetch(`/api/message/${messageId}/delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        location.reload(); // Reload to update messages
+      }
+    } catch (error) {
+      console.error("Error deleting message:", error);
+    }
+  }
+
+  // Socket.IO connection with error handling
+  const socket = io({
+    transports: ['polling', 'websocket'],
+    upgrade: true
+  });
+
+  const OTHER_USER_ID = {{ other_user.id }};
+  const CURRENT_USER_ID = {{ current_user.id }};
+  let currentCall = null;
+  let callTimer = null;
+  let callStartTime = null;
+
+  // Socket connection handlers
+  socket.on('connect', function() {
+    console.log('Socket connected:', socket.id);
+    console.log('Current user ID:', CURRENT_USER_ID);
+  });
+
+  socket.on('connect_error', function(error) {
+    console.error('Socket connection error:', error);
+  });
+
+  socket.on('disconnect', function() {
+    console.log('Socket disconnected');
+  });
+
+  // Call timer functions
+  function startCallTimer() {
+    callStartTime = Date.now();
+    callTimer = setInterval(updateCallTimer, 1000);
+    updateCallTimer(); // Update immediately
+  }
+
+  function updateCallTimer() {
+    if (!callStartTime) return;
+
+    const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+    const hours = Math.floor(elapsed / 3600);
+    const minutes = Math.floor((elapsed % 3600) / 60);
+    const seconds = elapsed % 60;
+
+    let timeString;
+    if (hours > 0) {
+      timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+      timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    document.getElementById("callStatus").textContent = timeString;
+  }
+
+  function stopCallTimer() {
+    if (callTimer) {
+      clearInterval(callTimer);
+      callTimer = null;
+      callStartTime = null;
+    }
+  }
+
+  // Voice Call Functions with WebRTC
+  let localStream = null;
+  let peerConnection = null;
+  let remoteStream = null;
+  const config = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  };
+
+  function startVoiceCall() {
+    console.log('Starting voice call to user:', OTHER_USER_ID);
+    currentCall = { type: 'voice', receiver_id: OTHER_USER_ID };
+    document.getElementById("callModal").classList.remove("hidden");
+    document.getElementById("callType").textContent = "Voice Call";
+    document.getElementById("callIcon").className =
+      "fas fa-phone text-6xl text-green-500 mb-4";
+    document.getElementById("videoContainer").classList.add("hidden");
+    document.getElementById("videoBtn").style.display = "none";
+    initiateCall(false);
+  }
+
+  function startVideoCall() {
+    console.log('Starting video call to user:', OTHER_USER_ID);
+    currentCall = { type: 'video', receiver_id: OTHER_USER_ID };
+    document.getElementById("callModal").classList.remove("hidden");
+    document.getElementById("callType").textContent = "Video Call";
+    document.getElementById("callIcon").className =
+      "fas fa-video text-6xl text-blue-500 mb-4";
+    document.getElementById("videoContainer").classList.remove("hidden");
+    document.getElementById("callIcon").style.display = "none";  // Hide icon for video calls
+    document.getElementById("videoBtn").style.display = "flex";
+    initiateCall(true);
+  }
+
+  async function initiateCall(isVideo) {
+    try {
+      console.log('Initiating call - isVideo:', isVideo);
+
+      // Get user media
+      const constraints = {
+        audio: true,
+        video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+      };
+
+      localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Got local stream with', localStream.getTracks().length, 'tracks');
+
+      if (isVideo) {
+        const localVideo = document.getElementById("localVideo");
+        localVideo.srcObject = localStream;
+        await localVideo.play().catch(e => console.log('Local video play error:', e));
+        console.log('Local video playing');
+      }
+
+      document.getElementById("callStatus").textContent = "Calling...";
+      document.getElementById("callIcon").style.display = isVideo ? "none" : "block";
+
+      // Send call initiation via Socket.IO
+      console.log('Emitting initiate_call event:', {
+        receiver_id: OTHER_USER_ID,
+        call_type: isVideo ? 'video' : 'voice'
+      });
+
+      socket.emit('initiate_call', {
+        receiver_id: OTHER_USER_ID,
+        call_type: isVideo ? 'video' : 'voice'
+      });
+
+      console.log('Call initiation event sent');
+
+      // Setup peer connection
+      peerConnection = new RTCPeerConnection(config);
+
+      // Add local stream tracks to peer connection
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      // Handle incoming tracks
+      peerConnection.ontrack = (event) => {
+        console.log('Received remote track:', event.track.kind);
+        if (!remoteStream) {
+          remoteStream = new MediaStream();
+        }
+        remoteStream.addTrack(event.track);
+
+        const remoteVideo = document.getElementById("remoteVideo");
+        if (remoteVideo) {
+          remoteVideo.srcObject = remoteStream;
+          // Ensure video plays
+          remoteVideo.play().catch(e => console.log('Remote video play:', e));
+
+          // Hide placeholder after video starts
+          remoteVideo.onloadedmetadata = () => {
+            const placeholders = document.querySelectorAll('#videoContainer .absolute.inset-0');
+            placeholders.forEach(p => p.style.display = 'none');
+          };
+        }
+      };
+
+      // Handle ICE candidates
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('webrtc_ice_candidate', {
+            receiver_id: OTHER_USER_ID,
+            candidate: event.candidate
+          });
+        }
+      };
+
+      // Create and send offer
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+
+      socket.emit('webrtc_offer', {
+        receiver_id: OTHER_USER_ID,
+        offer: offer
+      });
+
+    } catch (error) {
+      console.error("Error accessing media devices:", error);
+      alert("Could not access camera/microphone. Please check permissions.");
+      endCall();
+    }
+  }
+
+  // Handle call acceptance
+  socket.on('call_accepted', async (data) => {
+    console.log('Call accepted by other user');
+    startCallTimer();
+    document.getElementById("callControls").classList.remove("hidden");
+
+    // Show video container if it's a video call
+    if (currentCall && currentCall.type === 'video') {
+      document.getElementById("videoContainer").classList.remove("hidden");
+      document.getElementById("callIcon").style.display = "none";
+      // Ensure local video is playing
+      const localVideo = document.getElementById("localVideo");
+      if (localVideo.srcObject) {
+        localVideo.play().catch(e => console.log('Local video play:', e));
+      }
+    } else {
+      document.getElementById("callIcon").style.display = "none";
+    }
+  });
+
+  // Handle call rejection
+  socket.on('call_rejected', (data) => {
+    alert('Call was rejected');
+    endCall();
+  });
+
+  // Handle incoming WebRTC offer
+  socket.on('webrtc_offer', async (data) => {
+    if (!peerConnection) {
+      // This is an incoming call that was accepted
+      const isVideo = currentCall && currentCall.type === 'video';
+      const constraints = {
+        audio: true,
+        video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false
+      };
+
+      localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Receiver got local stream with', localStream.getTracks().length, 'tracks');
+
+      if (isVideo) {
+        const localVideo = document.getElementById("localVideo");
+        localVideo.srcObject = localStream;
+        await localVideo.play().catch(e => console.log('Receiver local video play error:', e));
+        console.log('Receiver local video playing');
+      }
+
+      peerConnection = new RTCPeerConnection(config);
+
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.ontrack = (event) => {
+        console.log('Received remote track (receiver side):', event.track.kind);
+        if (!remoteStream) {
+          remoteStream = new MediaStream();
+        }
+        remoteStream.addTrack(event.track);
+
+        const remoteVideo = document.getElementById("remoteVideo");
+        if (remoteVideo) {
+          remoteVideo.srcObject = remoteStream;
+          // Ensure video plays
+          remoteVideo.play().catch(e => console.log('Remote video play:', e));
+
+          // Hide placeholder after video starts
+          remoteVideo.onloadedmetadata = () => {
+            const placeholders = document.querySelectorAll('#videoContainer .absolute.inset-0');
+            placeholders.forEach(p => p.style.display = 'none');
+          };
+        }
+      };
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('webrtc_ice_candidate', {
+            receiver_id: data.sender_id,
+            candidate: event.candidate
+          });
+        }
+      };
+    }
+
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    socket.emit('webrtc_answer', {
+      receiver_id: data.sender_id,
+      answer: answer
+    });
+  });
+
+  // Handle incoming WebRTC answer
+  socket.on('webrtc_answer', async (data) => {
+    console.log('Received WebRTC answer');
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+
+    // Ensure local video is visible for video calls
+    if (currentCall && currentCall.type === 'video') {
+      const localVideo = document.getElementById("localVideo");
+      if (localVideo && localVideo.srcObject) {
+        localVideo.play().catch(e => console.log('Local video play:', e));
+      }
+    }
+  });
+
+  // Handle incoming ICE candidates
+  socket.on('webrtc_ice_candidate', async (data) => {
+    try {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+    } catch (error) {
+      console.error('Error adding ICE candidate:', error);
+    }
+  });
+
+  // Handle call end
+  socket.on('call_ended', (data) => {
+    endCall();
+  });
+
+  // Handle incoming call
+  socket.on('incoming_call', (data) => {
+    console.log('Incoming call received!', data);
+
+    const callerName = data.caller_username;
+    const callType = data.call_type;
+    const isVideo = callType === 'video';
+
+    currentCall = {
+      type: callType,
+      caller_id: data.caller_id,
+      caller_username: callerName
+    };
+
+    console.log('Showing incoming call modal for:', callerName);
+    document.getElementById("incomingCallModal").classList.remove("hidden");
+    document.getElementById("callerName").textContent = callerName;
+    document.getElementById("incomingCallType").textContent = isVideo ? "Video Call" : "Voice Call";
+    document.getElementById("incomingCallIcon").className = isVideo ?
+      "fas fa-video text-6xl text-blue-500 mb-4" :
+      "fas fa-phone text-6xl text-green-500 mb-4";
+
+    // Play ringtone
+    playRingtone();
+  });
+
+  let ringtoneAudio = null;
+  function playRingtone() {
+    ringtoneAudio = new Audio();
+    ringtoneAudio.loop = true;
+    // Using a simple beep tone - in production, use a proper ringtone file
+    ringtoneAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBCx+zPPTgjMGHm7A7+OZSA0PVqzn77FiFwtDm9300IEyAyF4yPDajjwJGGS57OihUBELTKXh8bllHAU2jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ1jdXyxnkqBSh9y/HRgjEHJnLB8N+RQA0SUqzo7rFjGgo/mN/zwnMiBy6Ayu/TgzsIImS47e+jTA8LTaTi8blnHQQ=';
+    ringtoneAudio.play().catch(e => console.log('Could not play ringtone:', e));
+  }
+
+  function stopRingtone() {
+    if (ringtoneAudio) {
+      ringtoneAudio.pause();
+      ringtoneAudio = null;
+    }
+  }
+
+  function acceptIncomingCall() {
+    stopRingtone();
+    document.getElementById("incomingCallModal").classList.add("hidden");
+
+    const isVideo = currentCall.type === 'video';
+
+    // Show call modal
+    document.getElementById("callModal").classList.remove("hidden");
+    document.getElementById("callType").textContent = isVideo ? "Video Call" : "Voice Call";
+    document.getElementById("callStatus").textContent = "Connecting...";
+
+    if (isVideo) {
+      document.getElementById("videoContainer").classList.remove("hidden");
+      document.getElementById("callIcon").style.display = "none";
+      document.getElementById("videoBtn").style.display = "flex";
+    } else {
+      document.getElementById("videoContainer").classList.add("hidden");
+      document.getElementById("callIcon").style.display = "block";
+      document.getElementById("videoBtn").style.display = "none";
+    }
+
+    // Show call controls for receiver
+    document.getElementById("callControls").classList.remove("hidden");
+
+    // Notify caller
+    socket.emit('accept_call', {
+      caller_id: currentCall.caller_id
+    });
+
+    // Start timer for receiver
+    startCallTimer();
+
+    // Call setup will be handled when we receive the WebRTC offer
+  }
+
+  function rejectIncomingCall() {
+    stopRingtone();
+    document.getElementById("incomingCallModal").classList.add("hidden");
+
+    socket.emit('reject_call', {
+      caller_id: currentCall.caller_id
+    });
+
+    currentCall = null;
+  }
+
+  function toggleMute() {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      audioTrack.enabled = !audioTrack.enabled;
+      const muteBtn = document.getElementById("muteBtn");
+      if (audioTrack.enabled) {
+        muteBtn.innerHTML = '<i class="fas fa-microphone text-xl"></i>';
+        muteBtn.classList.remove("bg-red-500");
+        muteBtn.classList.add("bg-slate-600");
+      } else {
+        muteBtn.innerHTML = '<i class="fas fa-microphone-slash text-xl"></i>';
+        muteBtn.classList.remove("bg-slate-600");
+        muteBtn.classList.add("bg-red-500");
+      }
+    }
+  }
+
+  function toggleVideo() {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        const videoBtn = document.getElementById("videoBtn");
+        if (videoTrack.enabled) {
+          videoBtn.innerHTML = '<i class="fas fa-video text-xl"></i>';
+          videoBtn.classList.remove("bg-red-500");
+          videoBtn.classList.add("bg-slate-600");
+        } else {
+          videoBtn.innerHTML = '<i class="fas fa-video-slash text-xl"></i>';
+          videoBtn.classList.remove("bg-slate-600");
+          videoBtn.classList.add("bg-red-500");
+        }
+      }
+    }
+  }
+
+  function endCall() {
+    stopRingtone();
+    stopCallTimer();
+
+    if (localStream) {
+      localStream.getTracks().forEach((track) => track.stop());
+      localStream = null;
+    }
+    if (peerConnection) {
+      peerConnection.close();
+      peerConnection = null;
+    }
+    if (remoteStream) {
+      remoteStream = null;
+    }
+
+    // Notify other user
+    if (currentCall) {
+      const otherUserId = currentCall.receiver_id || currentCall.caller_id;
+      socket.emit('end_call', {
+        other_user_id: otherUserId
+      });
+    }
+
+    document.getElementById("callModal").classList.add("hidden");
+    document.getElementById("callControls").classList.add("hidden");
+
+    // Clean up video elements
+    const localVideo = document.getElementById("localVideo");
+    const remoteVideo = document.getElementById("remoteVideo");
+    if (localVideo) localVideo.srcObject = null;
+    if (remoteVideo) remoteVideo.srcObject = null;
+
+    // Show placeholder again
+    const placeholders = document.querySelectorAll('#videoContainer .absolute.inset-0');
+    placeholders.forEach(p => p.style.display = 'flex');
+
+    currentCall = null;
+  }
+</script>
+
+<!-- Incoming Call Modal -->
+<div
+  id="incomingCallModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
+>
+  <div
+    class="bg-slate-800 rounded-2xl p-8 max-w-md w-full mx-4 text-white text-center"
+  >
+    <!-- Caller Info -->
+    <div class="mb-6">
+      <i
+        id="incomingCallIcon"
+        class="fas fa-phone text-6xl text-green-500 mb-4 animate-pulse"
+      ></i>
+      <h2 class="text-2xl font-bold mb-2" id="callerName"></h2>
+      <p id="incomingCallType" class="text-slate-300">Voice Call</p>
+    </div>
+
+    <!-- Call Actions -->
+    <div class="flex justify-center gap-4 mt-6">
+      <!-- Reject Button -->
+      <button
+        onclick="rejectIncomingCall()"
+        class="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 transition flex items-center justify-center"
+        title="Reject Call"
+      >
+        <i class="fas fa-phone-slash text-2xl"></i>
+      </button>
+
+      <!-- Accept Button -->
+      <button
+        onclick="acceptIncomingCall()"
+        class="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 transition flex items-center justify-center animate-pulse"
+        title="Accept Call"
+      >
+        <i class="fas fa-phone text-2xl"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Call Modal -->
+<div
+  id="callModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"
+>
+  <div class="bg-slate-800 rounded-2xl p-8 max-w-4xl w-full mx-4 text-white">
+    <!-- Call Header -->
+    <div class="text-center mb-6">
+      <h2 id="callType" class="text-2xl font-bold mb-2">Voice Call</h2>
+      <p class="text-slate-300">{{ other_user.username }}</p>
+      <p id="callStatus" class="text-sm text-slate-400 mt-2">Connecting...</p>
+    </div>
+
+    <!-- Call Icon (for voice calls) -->
+    <div class="text-center">
+      <i id="callIcon" class="fas fa-phone text-6xl text-green-500 mb-4"></i>
+    </div>
+
+    <!-- Video Container (for video calls) -->
+    <div id="videoContainer" class="hidden grid grid-cols-2 gap-4 mb-6">
+      <!-- Local Video -->
+      <div
+        class="relative bg-slate-900 rounded-lg overflow-hidden aspect-video"
+      >
+        <video
+          id="localVideo"
+          autoplay
+          muted
+          playsinline
+          class="w-full h-full object-cover"
+        ></video>
+        <div
+          class="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-sm"
+        >
+          You
+        </div>
+      </div>
+
+      <!-- Remote Video -->
+      <div
+        class="relative bg-slate-900 rounded-lg overflow-hidden aspect-video"
+      >
+        <video
+          id="remoteVideo"
+          autoplay
+          playsinline
+          class="w-full h-full object-cover"
+        ></video>
+        <div
+          class="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-sm"
+        >
+          {{ other_user.username }}
+        </div>
+        <!-- Placeholder when not connected -->
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="text-center">
+            <i class="fas fa-user-circle text-6xl text-slate-600 mb-2"></i>
+            <p class="text-slate-400">Waiting...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Call Controls -->
+    <div
+      id="callControls"
+      class="hidden flex items-center justify-center gap-4 mt-6"
+    >
+      <!-- Mute Button -->
+      <button
+        id="muteBtn"
+        onclick="toggleMute()"
+        class="w-14 h-14 rounded-full bg-slate-600 hover:bg-slate-700 transition flex items-center justify-center"
+        title="Mute/Unmute"
+      >
+        <i class="fas fa-microphone text-xl"></i>
+      </button>
+
+      <!-- Video Toggle Button (only shown in video calls) -->
+      <button
+        id="videoBtn"
+        onclick="toggleVideo()"
+        class="w-14 h-14 rounded-full bg-slate-600 hover:bg-slate-700 transition flex items-center justify-center"
+        title="Toggle Video"
+      >
+        <i class="fas fa-video text-xl"></i>
+      </button>
+
+      <!-- End Call Button -->
+      <button
+        onclick="endCall()"
+        class="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 transition flex items-center justify-center"
+        title="End Call"
+      >
+        <i class="fas fa-phone-slash text-xl"></i>
+      </button>
+    </div>
+
+    <!-- Close Button (when not connected) -->
+    <div class="text-center mt-6">
+      <button
+        onclick="endCall()"
+        class="px-6 py-2 bg-red-500 hover:bg-red-600 rounded-lg transition"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Features Modals -->
+
+<!-- Conversation Starters Modal -->
+<div
+  id="conversationStartersModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+>
+  <div
+    class="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto"
+  >
+    <div class="p-6 border-b border-slate-200">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold flex items-center">
+          <i class="fas fa-sparkles text-purple-600 mr-2"></i>
+          Conversation Starters
+        </h2>
+        <button
+          onclick="closeModal('conversationStartersModal')"
+          class="text-slate-400 hover:text-slate-600"
+        >
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="startersContent" class="p-6">
+      <div class="flex justify-center py-8">
+        <i class="fas fa-circle-notch fa-spin text-4xl text-purple-600"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Compatibility Analysis Modal -->
+<div
+  id="compatibilityModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+>
+  <div
+    class="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+  >
+    <div class="p-6 border-b border-slate-200">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold flex items-center">
+          <i class="fas fa-heart text-blue-600 mr-2"></i>
+          Compatibility Analysis
+        </h2>
+        <button
+          onclick="closeModal('compatibilityModal')"
+          class="text-slate-400 hover:text-slate-600"
+        >
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="compatibilityContent" class="p-6">
+      <div class="flex justify-center py-8">
+        <i class="fas fa-circle-notch fa-spin text-4xl text-blue-600"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Date Ideas Modal -->
+<div
+  id="dateIdeasModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+>
+  <div
+    class="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+  >
+    <div class="p-6 border-b border-slate-200">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold flex items-center">
+          <i class="fas fa-calendar-heart text-green-600 mr-2"></i>
+          Date Ideas
+        </h2>
+        <button
+          onclick="closeModal('dateIdeasModal')"
+          class="text-slate-400 hover:text-slate-600"
+        >
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="dateIdeasContent" class="p-6">
+      <div class="flex justify-center py-8">
+        <i class="fas fa-circle-notch fa-spin text-4xl text-green-600"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Message Coach Panel -->
+<div
+  id="messageCoachPanel"
+  class="hidden fixed bottom-24 right-4 bg-white rounded-lg shadow-xl border border-slate-200 w-96 z-40"
+>
+  <div class="p-4 border-b border-slate-200 bg-amber-50">
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold flex items-center text-sm">
+        <i class="fas fa-user-tie text-amber-600 mr-2"></i>
+        Message Coach
+      </h3>
+      <button
+        onclick="toggleMessageCoach()"
+        class="text-slate-400 hover:text-slate-600"
+      >
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="p-4">
+    <textarea
+      id="coachDraft"
+      rows="3"
+      class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+      placeholder="Paste your message draft here..."
+    ></textarea>
+
+    <button
+      onclick="getMessageCoaching()"
+      class="mt-3 w-full bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition text-sm font-medium"
+    >
+      Get Feedback
+    </button>
+
+    <div id="coachFeedback" class="mt-4 text-sm text-slate-600 hidden">
+      <!-- Feedback will appear here -->
+    </div>
+  </div>
+</div>
+
+<script>
+  const OTHER_USER_ID = {{ other_user.id }};
+
+  // AI Features Functions
+
+  function toggleAIMenu() {
+    const menu = document.getElementById('aiMenu');
+    menu.classList.toggle('hidden');
+  }
+
+  function closeModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+  }
+
+  async function getConversationStarters() {
+    toggleAIMenu();
+    document.getElementById('conversationStartersModal').classList.remove('hidden');
+
+    try {
+      const response = await fetch(`/ai/conversation-starters/${OTHER_USER_ID}`);
+      const data = await response.json();
+
+      if (data.success) {
+        let html = '<div class="space-y-3">';
+        data.starters.forEach((starter, index) => {
+          html += `
+            <div class="p-4 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition cursor-pointer" onclick="useStarter('${starter.replace(/'/g, "\\'")}')">
+              <div class="flex items-start">
+                <span class="font-bold text-purple-600 mr-3">${index + 1}.</span>
+                <p class="flex-1 text-slate-700">${starter}</p>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div><p class="text-sm text-slate-500 mt-4 text-center">Click any starter to use it</p>';
+        document.getElementById('startersContent').innerHTML = html;
+      } else {
+        document.getElementById('startersContent').innerHTML = `
+          <div class="text-center py-8">
+            <i class="fas fa-exclamation-circle text-4xl text-red-500 mb-3"></i>
+            <p class="text-slate-600">${data.error || 'Failed to generate starters'}</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      document.getElementById('startersContent').innerHTML = `
+        <div class="text-center py-8">
+          <i class="fas fa-exclamation-circle text-4xl text-red-500 mb-3"></i>
+          <p class="text-slate-600">Error: ${error.message}</p>
+        </div>
+      `;
+    }
+  }
+
+  function useStarter(text) {
+    document.getElementById('messageContent').value = text;
+    closeModal('conversationStartersModal');
+    document.getElementById('messageContent').focus();
+  }
+
+  async function getCompatibilityAnalysis() {
+    toggleAIMenu();
+    document.getElementById('compatibilityModal').classList.remove('hidden');
+
+    try {
+      const response = await fetch(`/ai/compatibility/${OTHER_USER_ID}`);
+      const data = await response.json();
+
+      if (data.success && data.analysis) {
+        const analysis = data.analysis;
+        let html = `
+          <div class="space-y-6">
+            <!-- Score -->
+            <div class="text-center py-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl">
+              <div class="text-6xl font-bold text-blue-600 mb-2">${analysis.compatibility_score}%</div>
+              <p class="text-slate-600 font-medium">Compatibility Score</p>
+            </div>
+
+            <!-- Strengths -->
+            <div>
+              <h3 class="font-bold text-slate-900 mb-3 flex items-center">
+                <i class="fas fa-star text-yellow-500 mr-2"></i>
+                Strengths
+              </h3>
+              <div class="space-y-2">
+                ${analysis.strengths.map(s => `
+                  <div class="flex items-start">
+                    <i class="fas fa-check-circle text-green-500 mr-2 mt-1"></i>
+                    <p class="text-slate-700">${s}</p>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Learning Opportunities -->
+            <div>
+              <h3 class="font-bold text-slate-900 mb-3 flex items-center">
+                <i class="fas fa-graduation-cap text-blue-500 mr-2"></i>
+                Learning Opportunities
+              </h3>
+              <p class="text-slate-700">${analysis.learning_opportunities}</p>
+            </div>
+
+            <!-- Conversation Topics -->
+            <div>
+              <h3 class="font-bold text-slate-900 mb-3 flex items-center">
+                <i class="fas fa-comments text-purple-500 mr-2"></i>
+                Great Conversation Topics
+              </h3>
+              <div class="flex flex-wrap gap-2">
+                ${analysis.conversation_topics.map(t => `
+                  <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">${t}</span>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Summary -->
+            ${analysis.overall_summary ? `
+              <div class="p-4 bg-slate-50 rounded-lg">
+                <p class="text-slate-700 italic">${analysis.overall_summary}</p>
+              </div>
+            ` : ''}
+          </div>
+        `;
+        document.getElementById('compatibilityContent').innerHTML = html;
+      } else {
+        document.getElementById('compatibilityContent').innerHTML = `
+          <div class="text-center py-8">
+            <i class="fas fa-exclamation-circle text-4xl text-red-500 mb-3"></i>
+            <p class="text-slate-600">${data.error || 'Failed to analyze compatibility'}</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      document.getElementById('compatibilityContent').innerHTML = `
+        <div class="text-center py-8">
+          <i class="fas fa-exclamation-circle text-4xl text-red-500 mb-3"></i>
+          <p class="text-slate-600">Error: ${error.message}</p>
+        </div>
+      `;
+    }
+  }
+
+  async function getDateIdeas() {
+    toggleAIMenu();
+    document.getElementById('dateIdeasModal').classList.remove('hidden');
+
+    try {
+      const response = await fetch(`/ai/date-ideas/${OTHER_USER_ID}`);
+      const data = await response.json();
+
+      if (data.success && data.ideas) {
+        let html = '<div class="space-y-4">';
+        data.ideas.forEach((idea, index) => {
+          html += `
+            <div class="p-5 bg-green-50 rounded-xl border border-green-200 hover:shadow-md transition">
+              <h4 class="font-bold text-green-900 mb-2 flex items-center">
+                <span class="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center text-sm mr-3">${index + 1}</span>
+                ${idea.title}
+              </h4>
+              <p class="text-slate-700 ml-11">${idea.description}</p>
+            </div>
+          `;
+        });
+        html += '</div>';
+        document.getElementById('dateIdeasContent').innerHTML = html;
+      } else {
+        document.getElementById('dateIdeasContent').innerHTML = `
+          <div class="text-center py-8">
+            <i class="fas fa-exclamation-circle text-4xl text-red-500 mb-3"></i>
+            <p class="text-slate-600">${data.error || 'Failed to generate date ideas'}</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      document.getElementById('dateIdeasContent').innerHTML = `
+        <div class="text-center py-8">
+          <i class="fas fa-exclamation-circle text-4xl text-red-500 mb-3"></i>
+          <p class="text-slate-600">Error: ${error.message}</p>
+        </div>
+      `;
+    }
+  }
+
+  function toggleMessageCoach() {
+    const panel = document.getElementById('messageCoachPanel');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+      toggleAIMenu();
+    }
+  }
+
+  async function getMessageCoaching() {
+    const draft = document.getElementById('coachDraft').value.trim();
+    if (!draft) {
+      alert('Please enter a message draft first');
+      return;
+    }
+
+    const feedbackDiv = document.getElementById('coachFeedback');
+    feedbackDiv.classList.remove('hidden');
+    feedbackDiv.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i>Analyzing...';
+
+    try {
+      const response = await fetch('/ai/message-coach', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: draft })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        feedbackDiv.innerHTML = `
+          <div class="p-4 bg-amber-50 rounded-lg border border-amber-200">
+            <pre class="whitespace-pre-wrap font-sans">${data.coaching}</pre>
+          </div>
+        `;
+      } else {
+        feedbackDiv.innerHTML = `<p class="text-red-600">${data.error || 'Failed to get coaching'}</p>`;
+      }
+    } catch (error) {
+      feedbackDiv.innerHTML = `<p class="text-red-600">Error: ${error.message}</p>`;
+    }
+  }
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', function(event) {
+    const aiMenu = document.getElementById('aiMenu');
+    const aiButton = document.getElementById('aiMenuButton');
+
+    if (!aiMenu.contains(event.target) && !aiButton.contains(event.target)) {
+      aiMenu.classList.add('hidden');
+    }
+  });
+</script>
+
+{% endblock %}

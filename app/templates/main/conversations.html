@@ -1,0 +1,127 @@
+{% extends "base.html" %} {% block title %}Messages{% endblock %} {% block
+content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+  <div class="bg-white rounded-lg shadow-md">
+    <!-- Header -->
+    <div class="border-b px-6 py-4">
+      <h1 class="text-2xl font-bold text-slate-800">
+        <i class="fas fa-comments mr-2 text-pink-500"></i>Messages
+      </h1>
+    </div>
+
+    <!-- Conversations List -->
+    <div class="divide-y">
+      {% if conversations %} {% for conv in conversations %}
+      <a
+        href="{{ url_for('main.messages', user_id=conv.user.id) }}"
+        class="block hover:bg-slate-50 transition-colors"
+      >
+        <div class="px-6 py-4 flex items-start gap-4">
+          <!-- Avatar -->
+          <div class="flex-shrink-0">
+            {% set first_photo = conv.user.profile.photos.first() if
+            conv.user.profile else None %} {% if first_photo %}
+            <img
+              src="{{ url_for('static', filename='uploads/' + first_photo.filename) }}"
+              alt="{{ conv.user.username }}"
+              class="w-16 h-16 rounded-full object-cover"
+            />
+            {% elif conv.user.profile and conv.user.profile.profile_photo %}
+            <img
+              src="{{ url_for('static', filename='uploads/' + conv.user.profile.profile_photo) }}"
+              alt="{{ conv.user.username }}"
+              class="w-16 h-16 rounded-full object-cover"
+            />
+            {% else %}
+            <div
+              class="w-16 h-16 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-xl font-bold"
+            >
+              {{ conv.user.username[0].upper() }}
+            </div>
+            {% endif %} {% if conv.unread_count > 0 %}
+            <div
+              class="w-3 h-3 bg-green-500 rounded-full border-2 border-white absolute mt-[-12px] ml-12"
+            ></div>
+            {% endif %}
+          </div>
+
+          <!-- Message Preview -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-semibold text-slate-800 truncate">
+                {{ conv.user.username }}
+              </h3>
+              {% if conv.last_message %}
+              <span class="text-xs text-slate-500 ml-2 flex-shrink-0">
+                {% if conv.last_message.sent_at.date() ==
+                datetime.utcnow().date() %} {{
+                conv.last_message.sent_at.strftime('%I:%M %p') }} {% elif
+                conv.last_message.sent_at.date() == (datetime.utcnow() -
+                timedelta(days=1)).date() %} Yesterday {% else %} {{
+                conv.last_message.sent_at.strftime('%b %d') }} {% endif %}
+              </span>
+              {% endif %}
+            </div>
+
+            {% if conv.last_message %}
+            <div class="flex items-center gap-2">
+              <p
+                class="text-sm text-slate-600 truncate {% if conv.unread_count > 0 %}font-semibold{% endif %}"
+              >
+                {% if conv.last_message.sender_id == current_user.id %}
+                <i class="fas fa-reply text-slate-400 text-xs mr-1"></i>
+                {% endif %} {% if conv.last_message.message_type == 'voice' %}
+                <i class="fas fa-microphone mr-1"></i>Voice message {% elif
+                conv.last_message.message_type == 'image' %}
+                <i class="fas fa-image mr-1"></i>Photo {% elif
+                conv.last_message.message_type == 'video' %}
+                <i class="fas fa-video mr-1"></i>Video {% elif
+                conv.last_message.message_type == 'file' %}
+                <i class="fas fa-file mr-1"></i>{{ conv.last_message.file_name
+                }} {% else %} {% if conv.last_message.is_rich_text %}
+                <span
+                  >{{ conv.last_message.content|striptags|truncate(50) }}</span
+                >
+                {% else %} {{ conv.last_message.content|truncate(50) }} {% endif
+                %} {% endif %}
+              </p>
+              {% if conv.unread_count > 0 %}
+              <span
+                class="bg-pink-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold flex-shrink-0"
+              >
+                {{ conv.unread_count }}
+              </span>
+              {% endif %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400 italic">Start a conversation...</p>
+            {% endif %}
+          </div>
+        </div>
+      </a>
+      {% endfor %} {% else %}
+      <!-- Empty State -->
+      <div class="px-6 py-12 text-center">
+        <div
+          class="w-24 h-24 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center"
+        >
+          <i class="fas fa-comments text-4xl text-slate-400"></i>
+        </div>
+        <h3 class="text-xl font-semibold text-slate-800 mb-2">
+          No messages yet
+        </h3>
+        <p class="text-slate-600 mb-6">
+          Start matching with people to begin conversations
+        </p>
+        <a
+          href="{{ url_for('main.discover') }}"
+          class="inline-block bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-pink-600 hover:to-purple-700 transition"
+        >
+          <i class="fas fa-heart mr-2"></i>Discover People
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
